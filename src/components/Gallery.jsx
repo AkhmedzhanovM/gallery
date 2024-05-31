@@ -1,17 +1,16 @@
+import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import Picture from "./Picture";
-import { createServerClient } from "@supabase/ssr";
 
 async function fetchPictures(supabaseServer){
-    if (!user) return;
 
     const folderPath = `gallery_folder/`
-    const {data, error} = await supabaseServer.storage
+    const {data,error} = await supabaseServer.storage
         .from('gallery')
         .list(folderPath)
 
     if (error){
-        console.error('Error fetching pictures', error)
+        console.error('Error fetching photos', error)
         return
     }
     return data;
@@ -21,7 +20,7 @@ async function getPictureUrls(pictures, supabaseServer){
     return Promise.all(pictures.map(async (picture) => {
         const {data, error} = await supabaseServer.storage
             .from('gallery')
-            .createSignedUrl(`gallery_folder/${pictre.name}`, 60 * 60)
+            .createSignedUrl(`gallery_folder/${picture.name}`, 60 * 60)
         if (error){
             console.error('Error generating signed url', error)
             return null
@@ -30,11 +29,10 @@ async function getPictureUrls(pictures, supabaseServer){
     }))
 }
 
-async function fetchFavoritePictures(supabaseServer){
+async function fetchFavorites(supabaseServer){
     const {data, error} = await supabaseServer
         .from('favorites')
         .select('picture_name')
-        .eq('user_id', user.id)
 
     if (error){
         console.error(`Error fetching favorites`, error)
@@ -44,28 +42,35 @@ async function fetchFavoritePictures(supabaseServer){
 }
 
 export default async function Gallery({favorites = false}){
-    const cookieStore = cookies()
-    
-    const supabaseServer = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-        cookies: {
-            get(name){
-                return cookieStore.get(name)?.value
+    const cookieStore = cookies();
+
+    const supabaseServer = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+            cookies: {
+                get(name){
+                    return cookieStore.get(name)?.value
+                }
             }
         }
-    })
-    const pictures = await fetchPictures()
-    const pictureObjects = await getPictureUrls(pictures, supabaseServer)
-    const favoritePictureNames = await fetchFavoritePictures(supabaseServer)
+    )
+
+
+    const pictures = await fetchPictures(supabaseServer)
+    const pictureObjects = await getPictureUrls(pictures, supabaseServer);
+    const favoritePictureNames = await fetchFavorites(supabaseServer);
 
     const picturesWithFavorites = pictureObjects.map((picture) => ({
         ...picture,
         isFavorited: favoritePictureNames.includes(picture.pictureName)
     }))
 
-    const displayedPictures = favorites ? picturesWithFavorites.filter(picture => picture.isFavorited)
-                                        : picturesWithFavorites
+    const displayedPictures = favorites 
+        ? picturesWithFavorites.filter(picture => picture.isFavorited)
+        : picturesWithFavorites
 
-    return(
+    return (
         <div className="flex flex-wrap justify-center gap-4">
             {
                 displayedPictures.map((picture) => (
