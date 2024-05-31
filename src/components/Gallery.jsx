@@ -2,22 +2,27 @@ import { cookies } from "next/headers";
 import Picture from "./Picture";
 import { createServerClient } from "@supabase/ssr";
 
-
 async function fetchPictures(supabaseServer){
-    const folderPath = `gallery_folder/`
-    const {data, error} = await supabaseServer.storage.from('gallery').list(folderPath)
+    if (!user) return;
 
-    if(error){
-        console.error(`Error fetching pictures`, error)
+    const folderPath = `gallery_folder/`
+    const {data, error} = await supabaseServer.storage
+        .from('gallery')
+        .list(folderPath)
+
+    if (error){
+        console.error('Error fetching pictures', error)
         return
     }
-    return data
+    return data;
 }
 
 async function getPictureUrls(pictures, supabaseServer){
-    return Promise.all(pictures.map(async(picture) => {
-        const {data, error} = await supabaseServer.storage.from('gallery').createSignedUrl(`gallery_folder/${picture.name}`, 60 * 60)
-        if(error){
+    return Promise.all(pictures.map(async (picture) => {
+        const {data, error} = await supabaseServer.storage
+            .from('gallery')
+            .createSignedUrl(`gallery_folder/${pictre.name}`, 60 * 60)
+        if (error){
             console.error('Error generating signed url', error)
             return null
         }
@@ -29,8 +34,10 @@ async function fetchFavoritePictures(supabaseServer){
     const {data, error} = await supabaseServer
         .from('favorites')
         .select('picture_name')
-    if(error){
-        console.error('Error fetching favorites', error)
+        .eq('user_id', user.id)
+
+    if (error){
+        console.error(`Error fetching favorites`, error)
         return []
     }
     return data.map((favorite) => favorite.picture_name)
