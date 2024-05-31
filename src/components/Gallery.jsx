@@ -1,8 +1,9 @@
-import { supabaseServer } from "@/app/utils/supabaseServerClient";
+import { cookies } from "next/headers";
 import Picture from "./Picture";
+import { createServerClient } from "@supabase/ssr";
 
 
-async function fetchPictures(){
+async function fetchPictures(supabaseServer){
     const folderPath = `gallery_folder/`
     const {data, error} = await supabaseServer.storage.from('gallery').list(folderPath)
 
@@ -13,7 +14,7 @@ async function fetchPictures(){
     return data
 }
 
-async function getPictureUrls(pictures){
+async function getPictureUrls(pictures, supabaseServer){
     return Promise.all(pictures.map(async(picture) => {
         const {data, error} = await supabaseServer.storage.from('gallery').createSignedUrl(`gallery_folder/${picture.name}`, 60 * 60)
         if(error){
@@ -24,7 +25,7 @@ async function getPictureUrls(pictures){
     }))
 }
 
-async function fetchFavoritePictures(){
+async function fetchFavoritePictures(supabaseServer){
     const {data, error} = await supabaseServer
         .from('favorites')
         .select('picture_name')
@@ -36,9 +37,18 @@ async function fetchFavoritePictures(){
 }
 
 export default async function Gallery({favorites = false}){
+    const cookieStore = cookies()
+    
+    const supabaseServer = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+        cookies: {
+            get(name){
+                return cookieStore.get(name)?.value
+            }
+        }
+    })
     const pictures = await fetchPictures()
-    const pictureObjects = await getPictureUrls(pictures)
-    const favoritePictureNames = await fetchFavoritePictures()
+    const pictureObjects = await getPictureUrls(pictures, supabaseServer)
+    const favoritePictureNames = await fetchFavoritePictures(supabaseServer)
 
     const picturesWithFavorites = pictureObjects.map((picture) => ({
         ...picture,
